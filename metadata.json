@@ -1,0 +1,5 @@
+{
+  "name": "Sea Surf",
+  "description": "Sistema de catálogo e pedidos Sea Surf. Permite seleção de produtos e envio de pedidos via WhatsApp.",
+  "requestFramePermissions": []
+}
