@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { PRODUCTS } from "../constants";
+import { Product } from "../types";
 
 const apiKey = process.env.API_KEY;
 
@@ -8,15 +8,16 @@ const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 export const chatWithAssistant = async (
   userMessage: string, 
-  history: { role: 'user' | 'model', text: string }[]
+  history: { role: 'user' | 'model', text: string }[],
+  currentProducts: Product[]
 ): Promise<string> => {
   if (!ai) {
     return "O assistente virtual está indisponível no momento (Chave de API não configurada).";
   }
 
   try {
-    // Construct system instruction with product context
-    const productContext = PRODUCTS.map(p => 
+    // Construct system instruction with product context form DB
+    const productContext = currentProducts.map(p => 
       `- ${p.name} (Ref: ${p.reference}): ${p.description}. Preço: R$${p.price.toFixed(2)}. Cores: ${p.availableColors.join(', ')}. Tamanhos: ${p.availableSizes.join(', ')}.`
     ).join('\n');
 
@@ -26,7 +27,7 @@ export const chatWithAssistant = async (
       Seu objetivo é ajudar os clientes a escolherem peças do catálogo.
       Seja educada, use um tom profissional mas acolhedor.
       
-      Aqui está o catálogo de produtos disponíveis:
+      Aqui está o catálogo de produtos disponíveis atualizado:
       ${productContext}
       
       Responda dúvidas sobre tecidos, caimentos, preços e sugestões de combinações.
@@ -35,7 +36,7 @@ export const chatWithAssistant = async (
     `;
 
     const chat = ai.chats.create({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.0-flash',
       config: {
         systemInstruction: systemInstruction,
       },
