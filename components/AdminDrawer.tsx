@@ -3,6 +3,7 @@ import { Product } from '../types';
 import { X, Upload, Plus, Save, Trash2, Edit, Search, Tag, CheckSquare, Hash, Loader2 } from 'lucide-react';
 import { uploadImage, addProductToDb, updateProductInDb, deleteProductFromDb } from '../services/productService';
 import { BulkUploadModal } from './BulkUploadModal';
+import { SeedCatalogButton } from './SeedCatalogButton';
 
 interface AdminDrawerProps {
   isOpen: boolean;
