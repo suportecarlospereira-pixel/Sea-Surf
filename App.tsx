@@ -1,14 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { PRODUCTS } from './constants';
 import { CartItem, Product } from './types';
 import { ProductCard } from './components/ProductCard';
 import { CartDrawer } from './components/CartDrawer';
 import { AdminDrawer } from './components/AdminDrawer';
-import { ShoppingBag, Search, Settings } from 'lucide-react';
+import { AIAssistant } from './components/AIAssistant';
+import { ShoppingBag, Search, Settings, Loader2 } from 'lucide-react';
+import { fetchProducts } from './services/productService';
 
 const App: React.FC = () => {
-  // Initialize products with constants, but allow state updates for dynamic additions
   const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -16,15 +17,19 @@ const App: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Load initial data
+  // Carregar dados do Firebase na inicialização
   useEffect(() => {
-    // Changed key to 'sea_surf_products_v1' to force new catalog load for the user with new branding
-    const savedProducts = localStorage.getItem('sea_surf_products_v1');
-    if (savedProducts) {
-        setProducts(JSON.parse(savedProducts));
-    } else {
-        setProducts(PRODUCTS);
-    }
+    const loadData = async () => {
+      try {
+        const data = await fetchProducts();
+        setProducts(data);
+      } catch (error) {
+        console.error("Erro ao carregar catálogo:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
   }, []);
 
   // Update categories dynamically based on current products
@@ -34,7 +39,6 @@ const App: React.FC = () => {
   }, [products]);
 
   const handleAddToCart = (item: CartItem) => {
-    // Check if box already exists in cart, if so, increment quantity by the specified amount
     setCartItems(prev => {
       const existing = prev.find(i => i.productId === item.productId);
       if (existing) {
@@ -54,37 +58,32 @@ const App: React.FC = () => {
     setCartItems(prev => prev.map((item, i) => i === index ? { ...item, quantity: newQuantity } : item));
   };
 
+  // Funções de callback para atualizar o estado local após sucesso no AdminDrawer
   const handleAddProduct = (newProduct: Product) => {
-      const updatedProducts = [newProduct, ...products];
-      setProducts(updatedProducts);
-      saveToStorage(updatedProducts);
+      setProducts(prev => [newProduct, ...prev]);
       setIsAdminOpen(false);
   };
 
   const handleUpdateProduct = (updatedProduct: Product) => {
-      const updatedProducts = products.map(p => p.id === updatedProduct.id ? updatedProduct : p);
-      setProducts(updatedProducts);
-      saveToStorage(updatedProducts);
-      // Update cart items if the product details changed
+      setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+      // Atualizar itens no carrinho se houver
       setCartItems(prev => prev.map(item => 
         item.productId === updatedProduct.id ? { ...item, product: updatedProduct } : item
       ));
-      alert("Produto atualizado com sucesso!");
       setIsAdminOpen(false);
   };
 
   const handleDeleteProduct = (productId: string) => {
-      if (window.confirm("Tem certeza que deseja excluir este produto do catálogo?")) {
-          const updatedProducts = products.filter(p => p.id !== productId);
-          setProducts(updatedProducts);
-          saveToStorage(updatedProducts);
-          // Remove from cart if present
-          setCartItems(prev => prev.filter(item => item.productId !== productId));
-          alert("Produto removido.");
-      }
+      setProducts(prev => prev.filter(p => p.id !== productId));
+      setCartItems(prev => prev.filter(item => item.productId !== productId));
+      setIsAdminOpen(false);
+      alert("Produto removido.");
   };
 
   const handleRenameCategory = (oldName: string, newName: string) => {
+      // Nota: No Firebase, isso exigiria atualizar todos os documentos. 
+      // Esta função atualiza apenas visualmente por enquanto.
+      // Para persistir, seria necessário criar uma função batch update no productService.
       if (!newName.trim() || oldName === newName) return;
       
       const updatedProducts = products.map(p => 
@@ -92,21 +91,11 @@ const App: React.FC = () => {
       );
       
       setProducts(updatedProducts);
-      saveToStorage(updatedProducts);
       
-      // If the user was viewing the old category, switch view to the new one
       if (selectedCategory === oldName) {
           setSelectedCategory(newName.trim());
       }
-      alert(`Categoria "${oldName}" renomeada para "${newName}" com sucesso!`);
-  };
-
-  const saveToStorage = (data: Product[]) => {
-      try {
-        localStorage.setItem('sea_surf_products_v1', JSON.stringify(data));
-      } catch (e) {
-        console.warn("Storage full or error saving", e);
-      }
+      alert(`Categoria renomeada localmente. Para persistir, edite cada produto.`);
   };
 
   const filteredProducts = useMemo(() => {
@@ -126,7 +115,6 @@ const App: React.FC = () => {
         <div className="container mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
           
           <div className="flex items-center gap-2">
-             {/* Logo / Brand Name */}
              <div className="w-10 h-10 bg-brand-navy text-white flex items-center justify-center font-serif text-xl font-bold rounded-sm">
                SS
              </div>
@@ -137,7 +125,6 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4 md:gap-6">
-            {/* Desktop Nav */}
             <nav className="hidden md:flex gap-6 text-sm font-medium text-gray-600">
               <button 
                 onClick={() => setSelectedCategory('Todos')}
@@ -157,7 +144,6 @@ const App: React.FC = () => {
             </nav>
 
             <div className="flex items-center gap-3">
-                {/* Admin Button */}
                 <button 
                   onClick={() => setIsAdminOpen(true)}
                   className="p-2 text-gray-400 hover:text-brand-navy hover:bg-gray-100 rounded-full transition-colors"
@@ -166,7 +152,6 @@ const App: React.FC = () => {
                   <Settings size={20} />
                 </button>
 
-                {/* Cart Button */}
                 <button 
                   onClick={() => setIsCartOpen(true)}
                   className="relative p-2 text-brand-navy hover:bg-gray-100 rounded-full transition-colors group"
@@ -232,7 +217,12 @@ const App: React.FC = () => {
 
       {/* Product Grid */}
       <main className="container mx-auto px-4 py-8">
-        {filteredProducts.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+             <Loader2 className="w-10 h-10 animate-spin text-brand-navy" />
+             <p className="text-gray-500 font-medium">Carregando catálogo...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-gray-400 text-lg">Nenhum produto encontrado com esses critérios.</p>
             <button 
@@ -254,6 +244,9 @@ const App: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* IA Assistant */}
+      <AIAssistant products={products} />
 
       {/* Drawers & Modals */}
       <CartDrawer 
