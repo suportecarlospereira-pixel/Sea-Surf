@@ -1,9 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Sparkles, Bot } from 'lucide-react';
-import { ChatMessage } from '../types';
+import { ChatMessage, Product } from '../types';
 import { chatWithAssistant } from '../services/geminiService';
 
-export const AIAssistant: React.FC = () => {
+interface AIAssistantProps {
+  products: Product[];
+}
+
+export const AIAssistant: React.FC<AIAssistantProps> = ({ products }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: 'model', text: 'Olá! Sou a estilista virtual da Sea Surf. Precisa de ajuda para montar um look ou escolher o tamanho ideal do nosso catálogo?' }
@@ -29,7 +33,8 @@ export const AIAssistant: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const responseText = await chatWithAssistant(userMsg.text, messages);
+      // Passamos os produtos atuais para o serviço
+      const responseText = await chatWithAssistant(userMsg.text, messages, products);
       setMessages(prev => [...prev, { role: 'model', text: responseText }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'model', text: 'Desculpe, ocorreu um erro. Tente novamente.', isError: true }]);
