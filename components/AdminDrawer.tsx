@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Product } from '../types';
-import { X, Upload, Plus, Save, Trash2, Edit, Search, Tag, CheckSquare, Hash } from 'lucide-react';
+import { X, Upload, Plus, Save, Trash2, Edit, Search, Tag, CheckSquare, Hash, Loader2 } from 'lucide-react';
+import { uploadImage, addProductToDb, updateProductInDb, deleteProductFromDb } from '../services/productService';
 
 interface AdminDrawerProps {
   isOpen: boolean;
@@ -24,9 +25,11 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
   const [mode, setMode] = useState<'create' | 'edit' | 'categories'>('create');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
@@ -59,51 +62,86 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
         unitsPerBox: 12
     });
     setEditingId(null);
+    setImageFile(null);
   };
 
   const handleSelectProductToEdit = (product: Product) => {
       setEditingId(product.id);
       setFormData({ ...product });
+      setImageFile(null);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, imageUrl: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      setImageFile(file);
+      // Criar preview local
+      setFormData(prev => ({ ...prev, imageUrl: URL.createObjectURL(file) }));
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.reference) return;
 
-    const productData: Product = {
-      id: editingId || Date.now().toString(),
-      name: formData.name!,
-      reference: formData.reference!,
-      price: Number(formData.price) || 0,
-      description: formData.description || '',
-      category: formData.category || 'Geral',
-      imageUrl: formData.imageUrl || 'https://via.placeholder.com/400x600?text=Sem+Foto',
-      availableSizes: typeof formData.availableSizes === 'string' ? (formData.availableSizes as string).split(',') : formData.availableSizes!,
-      availableColors: typeof formData.availableColors === 'string' ? (formData.availableColors as string).split(',') : formData.availableColors!,
-      unitsPerBox: Number(formData.unitsPerBox) || 12
-    };
+    setIsSaving(true);
 
-    if (mode === 'create') {
-        onAddProduct(productData);
-        alert("Produto adicionado com sucesso!");
-    } else {
-        onUpdateProduct(productData);
+    try {
+      let finalImageUrl = formData.imageUrl || 'https://via.placeholder.com/400x600?text=Sem+Foto';
+
+      // Se houver um novo arquivo, faz upload para o Firebase Storage
+      if (imageFile) {
+        finalImageUrl = await uploadImage(imageFile);
+      }
+
+      const productData = {
+        name: formData.name!,
+        reference: formData.reference!,
+        price: Number(formData.price) || 0,
+        description: formData.description || '',
+        category: formData.category || 'Geral',
+        imageUrl: finalImageUrl,
+        availableSizes: typeof formData.availableSizes === 'string' ? (formData.availableSizes as string).split(',') : formData.availableSizes!,
+        availableColors: typeof formData.availableColors === 'string' ? (formData.availableColors as string).split(',') : formData.availableColors!,
+        unitsPerBox: Number(formData.unitsPerBox) || 12
+      };
+
+      if (mode === 'create') {
+          const newProduct = await addProductToDb(productData);
+          onAddProduct(newProduct);
+          alert("Produto adicionado com sucesso!");
+          resetForm();
+      } else {
+          const updatedProduct = { ...productData, id: editingId! };
+          await updateProductInDb(updatedProduct);
+          onUpdateProduct(updatedProduct);
+          alert("Produto atualizado com sucesso!");
+          resetForm();
+          setMode('edit'); // Voltar para lista
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao salvar o produto. Verifique o console.");
+    } finally {
+      setIsSaving(false);
     }
-    
-    resetForm();
-    if (mode === 'create') setMode('create');
   };
+
+  const handleDelete = async () => {
+    if (!editingId) return;
+    if (window.confirm("Tem certeza que deseja excluir este produto do catálogo?")) {
+      setIsSaving(true);
+      try {
+        await deleteProductFromDb(editingId);
+        onDeleteProduct(editingId);
+        resetForm();
+      } catch (error) {
+        alert("Erro ao excluir.");
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  }
 
   const handleStartRenameCategory = (catName: string) => {
       setEditingCategory(catName);
@@ -373,16 +411,18 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
                 <div className="flex flex-col gap-3 pt-4">
                     <button 
                     type="submit"
-                    className="w-full bg-brand-navy text-white py-4 rounded-xl font-bold text-lg hover:bg-brand-navy/90 hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                    disabled={isSaving}
+                    className="w-full bg-brand-navy text-white py-4 rounded-xl font-bold text-lg hover:bg-brand-navy/90 hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                    <Save size={20} />
+                    {isSaving ? <Loader2 className="animate-spin" /> : <Save size={20} />}
                     {mode === 'create' ? 'Adicionar ao Catálogo' : 'Salvar Alterações'}
                     </button>
                     
                     {mode === 'edit' && (
                         <button 
                             type="button"
-                            onClick={() => onDeleteProduct(editingId!)}
+                            onClick={handleDelete}
+                            disabled={isSaving}
                             className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-semibold text-sm hover:bg-red-100 transition-all flex items-center justify-center gap-2"
                         >
                             <Trash2 size={16} />
