@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { Product } from '../types';
 import { X, Upload, Plus, Save, Trash2, Edit, Search, Tag, CheckSquare, Hash, Loader2 } from 'lucide-react';
 import { uploadImage, addProductToDb, updateProductInDb, deleteProductFromDb } from '../services/productService';
+import { BulkUploadModal } from './BulkUploadModal';
 
 interface AdminDrawerProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
   
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -209,6 +211,13 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
                 className={`flex-1 py-2 text-xs font-medium rounded-md transition-all ${mode === 'categories' ? 'bg-brand-gold text-brand-navy shadow-sm' : 'text-gray-300 hover:text-white'}`}
               >
                   Categorias
+              </button>
+              <button 
+                onClick={() => setIsBulkOpen(true)}
+                className="flex-1 py-2 text-xs font-medium rounded-md transition-all text-gray-300 hover:text-white hover:bg-white/10 flex items-center justify-center gap-1"
+                title="Upload em Massa"
+              >
+                  <Upload size={14} /> Em Massa
               </button>
           </div>
         </div>
@@ -435,6 +444,16 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
           )}
         </div>
       </div>
+
+      <BulkUploadModal 
+        isOpen={isBulkOpen}
+        onClose={() => setIsBulkOpen(false)}
+        products={products}
+        onSuccess={() => {
+           alert("Importação em massa finalizada!");
+           window.location.reload();
+        }}
+      />
     </>
   );
 };
