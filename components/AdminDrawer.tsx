@@ -261,6 +261,11 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
                   ))}
               </div>
           )}
+          {/* Área de Ferramentas Avançadas */}
+<div className="mt-6 border-t border-gray-100 pt-6">
+    <p className="text-xs font-bold text-gray-400 uppercase mb-3 text-center">Ferramentas de Banco de Dados</p>
+    <SeedCatalogButton />
+</div>
 
           {mode === 'edit' && !editingId && (
               <div className="p-6">
