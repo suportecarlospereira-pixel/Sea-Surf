@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Product, CartItem } from '../types';
-import { Plus, Minus, ShoppingBag, Box, Check } from 'lucide-react';
+import { Plus, Minus, ShoppingBag, Box, Check, Share2 } from 'lucide-react';
 
 interface ProductCardProps {
   product: Product;
@@ -33,6 +33,27 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }
     setQuantity(val);
   };
 
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const shareData = {
+        title: `Sea Surf - ${product.name}`,
+        text: `Olha esse modelo: ${product.name} (Ref: ${product.reference})`,
+        url: window.location.href // Idealmente seria um link para o produto específico se houvesse roteamento
+    };
+
+    try {
+        if (navigator.share) {
+            await navigator.share(shareData);
+        } else {
+            // Fallback para clipboard
+            await navigator.clipboard.writeText(`${shareData.text} - ${shareData.url}`);
+            alert("Link copiado para a área de transferência!");
+        }
+    } catch (err) {
+        console.log("Erro ao compartilhar", err);
+    }
+  };
+
   return (
     <div 
       className="group relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 ease-out border border-gray-100 flex flex-col h-full"
@@ -54,6 +75,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }
                 Ref: {product.reference}
             </span>
         </div>
+        
+        {/* Share Button (Top Right) */}
+        <button 
+            onClick={handleShare}
+            className="absolute top-3 right-3 p-2 bg-white/50 backdrop-blur-md rounded-full text-brand-navy hover:bg-white hover:text-brand-gold transition-all opacity-0 group-hover:opacity-100 shadow-sm"
+            title="Compartilhar"
+        >
+            <Share2 size={16} />
+        </button>
 
         {/* Quick Add Overlay (Mobile Friendly Logic) */}
         <div className={`absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent transition-all duration-300 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 md:opacity-0'}`}>
