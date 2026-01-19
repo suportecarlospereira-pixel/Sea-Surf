@@ -1,6 +1,9 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { Product } from '../types';
-import { X, Upload, Plus, Save, Trash2, Edit, Search, Lock, Unlock, Loader2, Image as ImageIcon } from 'lucide-react';
+import { 
+  X, Upload, Plus, Save, Trash2, Edit, Search, Lock, Unlock, 
+  Loader2, Image as ImageIcon, LayoutDashboard, TrendingUp, Package, Layers, AlertCircle 
+} from 'lucide-react';
 import { uploadImage, addProductToDb, updateProductInDb, deleteProductFromDb } from '../services/productService';
 
 interface AdminDrawerProps {
@@ -22,13 +25,13 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
   onDeleteProduct,
   onRenameCategory
 }) => {
-  // Authentication State
+  // Authentication
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState(false);
 
   // Management State
-  const [mode, setMode] = useState<'create' | 'edit' | 'categories'>('create');
+  const [mode, setMode] = useState<'dashboard' | 'create' | 'edit' | 'categories'>('dashboard');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -36,6 +39,7 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
   // Category Management
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
 
   // Form State
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -53,6 +57,15 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
   });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Derived Data for Dashboard
+  const stats = useMemo(() => {
+    const totalProducts = products.length;
+    const totalValue = products.reduce((acc, p) => acc + p.price, 0); // Valor unitário somado
+    const categoriesCount = new Set(products.map(p => p.category)).size;
+    const missingImages = products.filter(p => !p.imageUrl || p.imageUrl.includes('placeholder')).length;
+    return { totalProducts, totalValue, categoriesCount, missingImages };
+  }, [products]);
 
   const uniqueCategories = useMemo(() => {
       const cats = new Set(products.map(p => p.category));
@@ -74,7 +87,7 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
   const handleLogout = () => {
     setIsAuthenticated(false);
     resetForm();
-    setMode('create');
+    setMode('dashboard');
   };
 
   // --- Form Logic ---
@@ -93,6 +106,7 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
     setEditingId(null);
     setImageFile(null);
     setPreviewUrl(null);
+    setIsCreatingCategory(false);
   };
 
   const handleSelectProductToEdit = (product: Product) => {
@@ -110,6 +124,25 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
     }
   };
 
+  // --- Category Creation Logic ---
+  const handleStartCreateCategory = () => {
+      setIsCreatingCategory(true);
+      setNewCategoryName('');
+  };
+
+  const handleConfirmCreateCategory = () => {
+      if (!newCategoryName.trim()) return;
+      
+      // Prepara o formulário de criação de produto com a nova categoria já setada
+      resetForm();
+      setFormData(prev => ({ ...prev, category: newCategoryName.trim() }));
+      setMode('create');
+      setIsCreatingCategory(false);
+      
+      // Feedback visual (pode ser substituído por Toast no App principal, mas aqui usamos alert simples por enquanto)
+      alert(`Categoria "${newCategoryName}" iniciada! Agora adicione o primeiro produto para ela aparecer no catálogo.`);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.reference) return;
@@ -119,7 +152,6 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
     try {
       let finalImageUrl = formData.imageUrl || '';
 
-      // Upload logic - Robust and simple
       if (imageFile) {
         finalImageUrl = await uploadImage(imageFile);
       }
@@ -139,19 +171,19 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
       if (mode === 'create') {
           const newProduct = await addProductToDb(productData);
           onAddProduct(newProduct);
-          alert("Produto cadastrado com sucesso.");
+          alert("Produto cadastrado com sucesso!");
           resetForm();
       } else {
           const updatedProduct = { ...productData, id: editingId! };
           await updateProductInDb(updatedProduct);
           onUpdateProduct(updatedProduct);
-          alert("Produto atualizado com sucesso.");
+          alert("Produto atualizado com sucesso!");
           resetForm();
           setMode('edit'); 
       }
     } catch (error) {
       console.error(error);
-      alert("Erro crítico ao salvar. Verifique o console.");
+      alert("Erro ao salvar. Verifique o console.");
     } finally {
       setIsSaving(false);
     }
@@ -174,7 +206,6 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
     }
   }
 
-  // --- Category Logic ---
   const handleSaveRenameCategory = () => {
       if (editingCategory && newCategoryName && newCategoryName !== editingCategory) {
           onRenameCategory(editingCategory, newCategoryName);
@@ -203,7 +234,7 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
                 <h2 className="font-serif text-xl font-bold flex items-center gap-2">
                     <Lock size={20} className="text-brand-gold" /> Admin Panel
                 </h2>
-                <p className="text-xs text-brand-gold uppercase tracking-wider">Sea Surf System v2.0</p>
+                <p className="text-xs text-brand-gold uppercase tracking-wider">Sea Surf System v2.1</p>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                 <X size={24} />
@@ -250,66 +281,163 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
             // AUTHENTICATED CONTENT
             <>
                 {/* Navigation Tabs */}
-                <div className="flex bg-white p-2 shadow-sm gap-2 sticky top-0 z-10">
+                <div className="flex bg-white p-2 shadow-sm gap-2 sticky top-0 z-10 overflow-x-auto no-scrollbar">
+                     <button 
+                        onClick={() => { setMode('dashboard'); resetForm(); }}
+                        className={`flex-1 py-3 px-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex flex-col items-center gap-1 ${mode === 'dashboard' ? 'bg-brand-navy text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                    >
+                        <LayoutDashboard size={16} /> Dash
+                    </button>
                     <button 
                         onClick={() => { setMode('create'); resetForm(); }}
-                        className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${mode === 'create' ? 'bg-brand-navy text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                        className={`flex-1 py-3 px-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex flex-col items-center gap-1 ${mode === 'create' ? 'bg-brand-navy text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                     >
-                        <Plus size={14} className="inline mr-1 mb-0.5" /> Novo
+                        <Plus size={16} /> Novo
                     </button>
                     <button 
                         onClick={() => { setMode('edit'); resetForm(); }}
-                        className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${mode === 'edit' ? 'bg-brand-navy text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                        className={`flex-1 py-3 px-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex flex-col items-center gap-1 ${mode === 'edit' ? 'bg-brand-navy text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                     >
-                        <Edit size={14} className="inline mr-1 mb-0.5" /> Editar
+                        <Edit size={16} /> Editar
                     </button>
                     <button 
                         onClick={() => { setMode('categories'); resetForm(); }}
-                        className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${mode === 'categories' ? 'bg-brand-navy text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                        className={`flex-1 py-3 px-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex flex-col items-center gap-1 ${mode === 'categories' ? 'bg-brand-navy text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                     >
-                         Categorias
+                         <Layers size={16} /> Cats
                     </button>
                 </div>
+
+                {/* DASHBOARD MODE */}
+                {mode === 'dashboard' && (
+                    <div className="p-6 space-y-6 animate-fadeIn">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                                <div className="flex items-center gap-2 text-brand-gold mb-2">
+                                    <Package size={20} />
+                                    <span className="text-xs font-bold uppercase">Total Itens</span>
+                                </div>
+                                <p className="text-3xl font-serif font-bold text-brand-navy">{stats.totalProducts}</p>
+                            </div>
+                            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                                <div className="flex items-center gap-2 text-green-600 mb-2">
+                                    <Layers size={20} />
+                                    <span className="text-xs font-bold uppercase">Categorias</span>
+                                </div>
+                                <p className="text-3xl font-serif font-bold text-brand-navy">{stats.categoriesCount}</p>
+                            </div>
+                            <div className="col-span-2 bg-gradient-to-br from-brand-navy to-[#2a3f5f] p-6 rounded-2xl shadow-lg text-white">
+                                <div className="flex items-center gap-2 text-brand-gold mb-2 opacity-80">
+                                    <TrendingUp size={20} />
+                                    <span className="text-xs font-bold uppercase">Valor Estimado (Showroom)</span>
+                                </div>
+                                <p className="text-4xl font-serif font-bold">R$ {stats.totalValue.toFixed(2).replace('.', ',')}</p>
+                                <p className="text-xs text-gray-400 mt-2">*Soma do valor unitário de 1 peça de cada modelo.</p>
+                            </div>
+                        </div>
+
+                        {stats.missingImages > 0 && (
+                             <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl flex items-start gap-3">
+                                <AlertCircle className="text-orange-500 shrink-0 mt-0.5" size={20} />
+                                <div>
+                                    <h4 className="font-bold text-orange-800 text-sm">Atenção Necessária</h4>
+                                    <p className="text-xs text-orange-700 mt-1">
+                                        Existem {stats.missingImages} produtos sem foto ou com imagem provisória. Adicione fotos para melhorar as vendas.
+                                    </p>
+                                    <button 
+                                        onClick={() => {setMode('edit'); setSearchTerm('');}} 
+                                        className="mt-2 text-xs font-bold text-orange-600 underline"
+                                    >
+                                        Ir para edição
+                                    </button>
+                                </div>
+                             </div>
+                        )}
+                    </div>
+                )}
 
                 {/* CATEGORIES MODE */}
                 {mode === 'categories' && (
                     <div className="p-6 space-y-4">
-                        <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-sm text-blue-800 mb-6">
-                            <h4 className="font-bold flex items-center gap-2 mb-1"><Unlock size={16}/> Gerenciador de Categorias</h4>
-                            <p>Renomear uma categoria aqui atualizará automaticamente todos os produtos vinculados a ela.</p>
-                        </div>
                         
-                        {uniqueCategories.map(cat => (
-                            <div key={cat} className="bg-white p-4 rounded-xl border border-gray-100 flex items-center justify-between shadow-sm hover:shadow-md transition-all">
-                                {editingCategory === cat ? (
-                                    <div className="flex items-center gap-2 w-full animate-fadeIn">
+                        {/* New Category Creator */}
+                        <div className="bg-brand-navy/5 border border-brand-navy/10 p-5 rounded-2xl mb-6">
+                            {isCreatingCategory ? (
+                                <div className="animate-fadeIn">
+                                    <label className="text-xs font-bold text-brand-navy uppercase mb-2 block">Nome da Nova Categoria</label>
+                                    <div className="flex gap-2">
                                         <input 
                                             type="text" 
                                             value={newCategoryName}
                                             onChange={(e) => setNewCategoryName(e.target.value)}
-                                            className="flex-grow p-2 border border-brand-gold rounded focus:outline-none text-sm font-bold text-brand-navy"
+                                            placeholder="Ex: Verão 2027"
+                                            className="flex-grow p-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-navy outline-none text-sm"
                                             autoFocus
                                         />
-                                        <button onClick={handleSaveRenameCategory} className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 shadow-sm">
-                                            <Save size={18} />
+                                        <button 
+                                            onClick={handleConfirmCreateCategory}
+                                            disabled={!newCategoryName.trim()}
+                                            className="bg-brand-navy text-white px-4 rounded-xl font-bold disabled:opacity-50"
+                                        >
+                                            <Plus size={20} />
                                         </button>
-                                        <button onClick={() => setEditingCategory(null)} className="p-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300">
-                                            <X size={18} />
+                                        <button 
+                                            onClick={() => setIsCreatingCategory(false)}
+                                            className="bg-gray-200 text-gray-600 px-4 rounded-xl"
+                                        >
+                                            <X size={20} />
                                         </button>
                                     </div>
-                                ) : (
-                                    <>
-                                        <span className="font-bold text-gray-700">{cat}</span>
-                                        <button 
-                                            onClick={() => { setEditingCategory(cat); setNewCategoryName(cat); }}
-                                            className="p-2 text-gray-400 hover:text-brand-navy bg-gray-50 hover:bg-gray-100 rounded-lg transition-all"
-                                        >
-                                            <Edit size={16} />
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                        ))}
+                                    <p className="text-[10px] text-gray-500 mt-2 leading-tight">
+                                        * Ao confirmar, você será redirecionado para cadastrar o primeiro produto desta categoria.
+                                    </p>
+                                </div>
+                            ) : (
+                                <button 
+                                    onClick={handleStartCreateCategory}
+                                    className="w-full flex items-center justify-center gap-2 py-3 bg-brand-navy text-white rounded-xl font-bold shadow-md hover:bg-brand-gold hover:text-brand-navy transition-all"
+                                >
+                                    <Plus size={20} /> Criar Nova Categoria
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="space-y-3">
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider px-1">Categorias Existentes</p>
+                            {uniqueCategories.map(cat => (
+                                <div key={cat} className="bg-white p-4 rounded-xl border border-gray-100 flex items-center justify-between shadow-sm hover:shadow-md transition-all group">
+                                    {editingCategory === cat ? (
+                                        <div className="flex items-center gap-2 w-full animate-fadeIn">
+                                            <input 
+                                                type="text" 
+                                                value={newCategoryName}
+                                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                                className="flex-grow p-2 border border-brand-gold rounded focus:outline-none text-sm font-bold text-brand-navy"
+                                                autoFocus
+                                            />
+                                            <button onClick={handleSaveRenameCategory} className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 shadow-sm">
+                                                <Save size={18} />
+                                            </button>
+                                            <button onClick={() => setEditingCategory(null)} className="p-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300">
+                                                <X size={18} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <span className="font-bold text-gray-700">{cat}</span>
+                                            <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                                                <button 
+                                                    onClick={() => { setEditingCategory(cat); setNewCategoryName(cat); }}
+                                                    className="p-2 text-gray-400 hover:text-brand-navy bg-gray-50 hover:bg-gray-100 rounded-lg transition-all"
+                                                >
+                                                    <Edit size={16} />
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
 
@@ -333,16 +461,19 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
                                     onClick={() => handleSelectProductToEdit(product)}
                                     className="bg-white p-3 rounded-xl border border-gray-100 flex items-center gap-4 cursor-pointer hover:border-brand-navy hover:shadow-md transition-all group"
                                 >
-                                    <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200">
+                                    <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200 relative">
                                         {product.imageUrl ? (
                                             <img src={product.imageUrl} alt="" className="w-full h-full object-cover" />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-gray-300"><ImageIcon size={20}/></div>
+                                            <div className="w-full h-full flex items-center justify-center text-gray-300 bg-gray-50"><ImageIcon size={20}/></div>
+                                        )}
+                                        {(!product.imageUrl || product.imageUrl.includes('placeholder')) && (
+                                            <div className="absolute top-0 right-0 w-3 h-3 bg-orange-500 rounded-full border-2 border-white"></div>
                                         )}
                                     </div>
                                     <div className="flex-grow">
                                         <p className="text-[10px] font-bold text-brand-gold uppercase tracking-wider">{product.reference}</p>
-                                        <h4 className="font-bold text-gray-800 leading-tight group-hover:text-brand-navy">{product.name}</h4>
+                                        <h4 className="font-bold text-gray-800 leading-tight group-hover:text-brand-navy line-clamp-1">{product.name}</h4>
                                         <p className="text-xs text-gray-500 mt-1">R$ {product.price.toFixed(2)}</p>
                                     </div>
                                     <div className="bg-gray-50 p-2 rounded-full group-hover:bg-brand-navy group-hover:text-white transition-colors">
@@ -455,7 +586,7 @@ export const AdminDrawer: React.FC<AdminDrawerProps> = ({
                                 required
                                 value={formData.category}
                                 onChange={e => setFormData({...formData, category: e.target.value})}
-                                className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-navy/20 focus:border-brand-navy outline-none"
+                                className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-navy/20 focus:border-brand-navy outline-none font-bold text-brand-navy"
                             />
                             <datalist id="categories-list">
                                 {uniqueCategories.map(cat => <option key={cat} value={cat} />)}
