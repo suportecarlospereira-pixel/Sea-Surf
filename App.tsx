@@ -35,7 +35,7 @@ const App: React.FC = () => {
   // Update categories dynamically based on current products
   const currentCategories = useMemo(() => {
     const cats = new Set(products.map(p => p.category));
-    return ['Todos', ...Array.from(cats)];
+    return ['Todos', ...Array.from(cats).sort()];
   }, [products]);
 
   const handleAddToCart = (item: CartItem) => {
@@ -58,44 +58,33 @@ const App: React.FC = () => {
     setCartItems(prev => prev.map((item, i) => i === index ? { ...item, quantity: newQuantity } : item));
   };
 
-  // Funções de callback para atualizar o estado local após sucesso no AdminDrawer
+  // Callbacks para AdminDrawer
   const handleAddProduct = (newProduct: Product) => {
       setProducts(prev => [newProduct, ...prev]);
-      setIsAdminOpen(false);
   };
 
   const handleUpdateProduct = (updatedProduct: Product) => {
       setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
-      // Atualizar itens no carrinho se houver
       setCartItems(prev => prev.map(item => 
         item.productId === updatedProduct.id ? { ...item, product: updatedProduct } : item
       ));
-      setIsAdminOpen(false);
   };
 
   const handleDeleteProduct = (productId: string) => {
       setProducts(prev => prev.filter(p => p.id !== productId));
       setCartItems(prev => prev.filter(item => item.productId !== productId));
-      setIsAdminOpen(false);
-      alert("Produto removido.");
+      alert("Produto removido com sucesso.");
   };
 
   const handleRenameCategory = (oldName: string, newName: string) => {
-      // Nota: No Firebase, isso exigiria atualizar todos os documentos. 
-      // Esta função atualiza apenas visualmente por enquanto.
-      // Para persistir, seria necessário criar uma função batch update no productService.
-      if (!newName.trim() || oldName === newName) return;
-      
+      // Atualização visual otimista
       const updatedProducts = products.map(p => 
           p.category === oldName ? { ...p, category: newName.trim() } : p
       );
-      
       setProducts(updatedProducts);
-      
-      if (selectedCategory === oldName) {
-          setSelectedCategory(newName.trim());
-      }
-      alert(`Categoria renomeada localmente. Para persistir, edite cada produto.`);
+      if (selectedCategory === oldName) setSelectedCategory(newName.trim());
+      // Nota: A persistência real exigiria um batch update no Firestore, 
+      // mas para UX imediata isso resolve, o usuário deve editar os produtos para salvar definitivamente se der refresh.
   };
 
   const filteredProducts = useMemo(() => {
@@ -125,29 +114,11 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4 md:gap-6">
-            <nav className="hidden md:flex gap-6 text-sm font-medium text-gray-600">
-              <button 
-                onClick={() => setSelectedCategory('Todos')}
-                className={`hover:text-brand-navy transition-colors ${selectedCategory === 'Todos' ? 'text-brand-navy font-bold' : ''}`}
-              >
-                Início
-              </button>
-              {currentCategories.slice(1, 4).map(cat => (
-                <button 
-                  key={cat} 
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`hover:text-brand-navy transition-colors ${selectedCategory === cat ? 'text-brand-navy font-bold' : ''}`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </nav>
-
             <div className="flex items-center gap-3">
                 <button 
                   onClick={() => setIsAdminOpen(true)}
                   className="p-2 text-gray-400 hover:text-brand-navy hover:bg-gray-100 rounded-full transition-colors"
-                  title="Gerenciar Catálogo"
+                  title="Acesso Administrativo"
                 >
                   <Settings size={20} />
                 </button>
@@ -198,7 +169,17 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 no-scrollbar">
-            {currentCategories.map(cat => (
+            <button 
+                onClick={() => setSelectedCategory('Todos')}
+                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  selectedCategory === 'Todos' 
+                    ? 'bg-brand-navy text-white shadow-md' 
+                    : 'bg-white text-gray-600 border border-gray-200 hover:border-brand-navy'
+                }`}
+              >
+                Todos
+            </button>
+            {currentCategories.filter(c => c !== 'Todos').map(cat => (
               <button 
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
@@ -224,7 +205,7 @@ const App: React.FC = () => {
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-gray-400 text-lg">Nenhum produto encontrado com esses critérios.</p>
+            <p className="text-gray-400 text-lg">Nenhum produto encontrado.</p>
             <button 
               onClick={() => {setSearchQuery(''); setSelectedCategory('Todos');}}
               className="mt-4 text-brand-navy underline font-medium"
@@ -248,7 +229,7 @@ const App: React.FC = () => {
       {/* IA Assistant */}
       <AIAssistant products={products} />
 
-      {/* Drawers & Modals */}
+      {/* Drawers */}
       <CartDrawer 
         isOpen={isCartOpen} 
         onClose={() => setIsCartOpen(false)} 
