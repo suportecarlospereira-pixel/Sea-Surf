@@ -3,7 +3,6 @@ import { CartItem, Product } from './types';
 import { ProductCard } from './components/ProductCard';
 import { CartDrawer } from './components/CartDrawer';
 import { AdminDrawer } from './components/AdminDrawer';
-import { AIAssistant } from './components/AIAssistant';
 import { ToastContainer, ToastMessage, ToastType } from './components/Toast'; // Importe o Toast
 import { ShoppingBag, Search, Settings, Loader2, Menu, X, Filter } from 'lucide-react';
 import { fetchProducts } from './services/productService';
