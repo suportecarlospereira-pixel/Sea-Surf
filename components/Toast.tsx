@@ -15,14 +15,26 @@ export const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  const bgColor = type === 'success' ? 'bg-brand-navy' : 'bg-red-600';
-  const icon = type === 'success' ? <Check size={20} className="text-brand-gold" /> : <AlertCircle size={20} className="text-white" />;
+  const styles = {
+    success: 'bg-brand-navy text-white border-brand-gold shadow-brand-gold/20',
+    error: 'bg-red-50 text-red-800 border-red-200 shadow-red-500/10'
+  };
+
+  const icons = {
+    success: <Check size={20} className="text-brand-gold" />,
+    error: <AlertCircle size={20} className="text-red-600" />
+  };
 
   return (
-    <div className={`fixed top-4 right-4 z-[100] flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl text-white ${bgColor} animate-bounce-short`}>
-      {icon}
+    <div className={`fixed top-4 right-4 z-[100] flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl backdrop-blur-md transition-all duration-300 animate-slideDown ${styles[type === 'info' ? 'success' : type] || styles.success}`}>
+      <div className="flex-shrink-0">
+        {icons[type === 'info' ? 'success' : type] || icons.success}
+      </div>
       <p className="font-medium text-sm pr-2">{message}</p>
-      <button onClick={onClose} className="opacity-70 hover:opacity-100">
+      <button 
+        onClick={onClose}
+        className="opacity-60 hover:opacity-100 transition-opacity p-1 hover:bg-black/10 rounded-full"
+      >
         <X size={16} />
       </button>
     </div>
