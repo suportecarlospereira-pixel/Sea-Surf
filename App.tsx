@@ -248,9 +248,6 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* IA Assistant */}
-      <AIAssistant products={products} />
-
       {/* Drawers */}
       <CartDrawer 
         isOpen={isCartOpen} 
