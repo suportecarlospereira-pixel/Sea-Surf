@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Upload, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { Product } from '../types';
-import { uploadImage, updateProductInDb } from '../services/productService';
+// ADICIONAMOS addProductToDb AQUI
+import { uploadImage, updateProductInDb, addProductToDb } from '../services/productService';
 
 interface BulkUploadModalProps {
   isOpen: boolean;
@@ -26,38 +27,68 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClos
     newLogs.push(`📂 Iniciando processamento de ${files.length} imagens...`);
 
     for (const file of files) {
-      // Remove a extensão do arquivo para pegar a referência (ex: "01.002296.jpg" -> "01.002296")
-      const referenceCode = file.name.split('.').slice(0, -1).join('.').trim(); // Lida com pontos no nome
+      // Pega o nome do arquivo sem a extensão para usar como referência
+      // Exemplo: "01.002296.jpg" vira "01.002296"
+      const referenceCode = file.name.split('.').slice(0, -1).join('.').trim();
       
-      // Tenta encontrar um produto que tenha EXATAMENTE essa referência
-      // Normalizamos para lowercase para evitar erros de digitação
-      const product = products.find(p => p.reference.toLowerCase().trim() === referenceCode.toLowerCase().trim());
+      try {
+        // 1. Upload da Imagem
+        newLogs.push(`⬆️ Uploading: ${file.name}...`);
+        const imageUrl = await uploadImage(file);
 
-      if (product) {
-        try {
-          newLogs.push(`🔄 Enviando imagem para: ${product.name} (Ref: ${referenceCode})...`);
+        // 2. Verifica se o produto já existe
+        const existingProduct = products.find(p => 
+          p.reference.toLowerCase().trim() === referenceCode.toLowerCase().trim()
+        );
+
+        if (existingProduct) {
+          // --- CENÁRIO A: Produto Existe (Atualiza imagem) ---
+          newLogs.push(`🔄 Produto encontrado (${existingProduct.name}). Atualizando foto...`);
+          await updateProductInDb({ 
+            ...existingProduct, 
+            imageUrl: imageUrl 
+          });
+          newLogs.push(`✅ Foto atualizada para: ${referenceCode}`);
+        } else {
+          // --- CENÁRIO B: Produto Novo (Cria do zero) ---
+          newLogs.push(`✨ Produto não encontrado. Criando novo: ${referenceCode}...`);
           
-          // 1. Upload da Imagem
-          const imageUrl = await uploadImage(file);
-          
-          // 2. Atualizar Produto no Banco
-          await updateProductInDb({ ...product, imageUrl });
-          
-          newLogs.push(`✅ Sucesso: ${product.reference} atualizado.`);
-          successCount++;
-        } catch (error) {
-          console.error(error);
-          newLogs.push(`❌ Erro ao atualizar ${referenceCode}: Falha no upload.`);
+          const newProductData: Omit<Product, 'id'> = {
+            name: referenceCode, // Usa o nome do arquivo como nome do produto
+            reference: referenceCode,
+            imageUrl: imageUrl,
+            price: 0, // Preço padrão (você pode editar depois)
+            description: 'Produto importado via upload em massa.',
+            category: 'Importados', // Categoria padrão para facilitar a busca
+            availableSizes: ['P', 'M', 'G', 'GG'], // Grade padrão
+            availableColors: ['Variadas'],
+            unitsPerBox: 12
+          };
+
+          await addProductToDb(newProductData);
+          newLogs.push(`✅ Produto criado com sucesso: ${referenceCode}`);
         }
-      } else {
-        newLogs.push(`⚠️ Ignorado: Não encontrei produto com referência "${referenceCode}" (Arquivo: ${file.name})`);
+
+        successCount++;
+        // Atualiza o log visualmente a cada passo
+        setLogs([...newLogs]);
+
+      } catch (error) {
+        console.error(error);
+        newLogs.push(`❌ Erro ao processar ${file.name}`);
+        setLogs([...newLogs]);
       }
     }
 
-    newLogs.push(`🏁 Concluído! ${successCount} produtos atualizados.`);
-    setLogs(prev => [...prev, ...newLogs]);
+    newLogs.push(`🏁 Processo finalizado! ${successCount} de ${files.length} imagens processadas.`);
+    setLogs([...newLogs]);
     setIsProcessing(false);
-    if (successCount > 0) onSuccess();
+    
+    // Aguarda um pouco e fecha/atualiza
+    setTimeout(() => {
+      onSuccess(); // Recarrega os produtos no App
+      // onClose(); // Opcional: fechar automaticamente
+    }, 2000);
   };
 
   if (!isOpen) return null;
@@ -67,59 +98,53 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClos
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden">
         
         {/* Header */}
-        <div className="bg-brand-navy p-4 flex justify-between items-center text-white">
-          <h3 className="font-serif font-bold text-lg flex items-center gap-2">
-            <Upload size={20} className="text-brand-gold" /> Upload em Massa Inteligente
-          </h3>
-          <button onClick={onClose} disabled={isProcessing} className="hover:bg-white/20 p-1 rounded-full">
-            <X size={24} />
+        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <Upload className="text-brand-gold" /> Upload em Massa
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Arraste suas fotos. Se o produto não existir, ele será criado automaticamente.
+            </p>
+          </div>
+          <button 
+            onClick={onClose} 
+            disabled={isProcessing}
+            className="p-2 hover:bg-gray-200 rounded-full transition-colors disabled:opacity-50"
+          >
+            <X size={20} />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 flex-grow overflow-y-auto space-y-6">
-          
-          {!isProcessing && logs.length === 0 && (
-            <div className="text-center space-y-4">
-              <div className="bg-blue-50 text-blue-800 p-4 rounded-lg text-sm text-left border border-blue-100">
-                <p className="font-bold flex items-center gap-2 mb-2">
-                  <AlertCircle size={16} /> Como funciona:
-                </p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>O nome do arquivo da imagem deve ser <strong>IGUAL</strong> à Referência do produto.</li>
-                  <li>Exemplo: Se a referência é <code>01.002296</code>, o arquivo deve ser <code>01.002296.jpg</code>.</li>
-                  <li>Você pode selecionar centenas de fotos de uma vez.</li>
-                </ul>
+        <div className="p-8 flex-grow overflow-y-auto">
+          {!isProcessing && logs.length === 0 ? (
+            <div className="border-2 border-dashed border-gray-300 rounded-xl p-10 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors cursor-pointer relative group">
+              <input 
+                type="file" 
+                multiple 
+                accept="image/*"
+                onChange={handleFiles}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+              />
+              <div className="bg-brand-navy/10 p-4 rounded-full mb-4 group-hover:scale-110 transition-transform">
+                <Upload size={40} className="text-brand-navy" />
               </div>
-
-              <label className="block mt-8 cursor-pointer group">
-                <div className="border-3 border-dashed border-gray-300 rounded-xl p-10 group-hover:border-brand-navy group-hover:bg-brand-navy/5 transition-all">
-                  <Upload size={48} className="mx-auto text-gray-400 group-hover:text-brand-navy mb-4" />
-                  <span className="text-lg font-bold text-gray-600 group-hover:text-brand-navy">Clique para selecionar imagens</span>
-                  <p className="text-sm text-gray-400 mt-2">Suporta JPG, PNG, WEBP</p>
-                </div>
-                <input 
-                  type="file" 
-                  multiple 
-                  accept="image/*" 
-                  onChange={handleFiles} 
-                  className="hidden" 
-                />
-              </label>
+              <h3 className="font-bold text-lg text-brand-navy mb-2">Clique para selecionar imagens</h3>
+              <p className="text-gray-500 text-sm max-w-xs">
+                Selecione todas as fotos do seu catálogo. O nome do arquivo será usado como Referência.
+              </p>
             </div>
-          )}
-
-          {/* Logs Terminal */}
-          {(isProcessing || logs.length > 0) && (
-            <div className="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-xs h-64 overflow-y-auto shadow-inner">
+          ) : (
+            <div className="bg-gray-900 rounded-xl p-6 font-mono text-sm text-green-400 h-96 overflow-y-auto shadow-inner">
               {logs.map((log, i) => (
-                <div key={i} className={`mb-1 ${log.includes('❌') ? 'text-red-400' : log.includes('⚠️') ? 'text-yellow-400' : ''}`}>
+                <div key={i} className="mb-2 border-b border-gray-800 pb-1 last:border-0">
                   {log}
                 </div>
               ))}
               {isProcessing && (
-                <div className="flex items-center gap-2 mt-2 text-white animate-pulse">
-                  <Loader2 size={12} className="animate-spin" /> Processando...
+                <div className="flex items-center gap-2 text-brand-gold mt-4 animate-pulse">
+                  <Loader2 className="animate-spin" size={16} /> Processando próxima imagem...
                 </div>
               )}
             </div>
