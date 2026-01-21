@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Search, Lock, Menu, SlidersHorizontal } from 'lucide-react';
+import { ShoppingBag, Search, Lock, SlidersHorizontal } from 'lucide-react';
 import { Product, CartItem } from './types';
-import { getProducts } from './services/productService';
+// CORREÇÃO AQUI: Mudamos de getProducts para fetchProducts
+import { fetchProducts } from './services/productService';
 import { ProductCard } from './components/ProductCard';
 import { CartDrawer } from './components/CartDrawer';
 import { AdminDrawer } from './components/AdminDrawer';
 import { BulkUploadModal } from './components/BulkUploadModal';
-import { SeedCatalogButton } from './components/SeedCatalogButton'; // Trouxe de volta
+import { SeedCatalogButton } from './components/SeedCatalogButton';
 import { Toast } from './components/Toast';
 
 function App() {
@@ -31,7 +32,8 @@ function App() {
 
   const loadProducts = async () => {
     try {
-      const data = await getProducts();
+      // CORREÇÃO AQUI: Chamando a função correta fetchProducts()
+      const data = await fetchProducts();
       setProducts(data);
     } catch (error) {
       console.error("Erro ao carregar produtos:", error);
@@ -54,7 +56,7 @@ function App() {
       return [...prev, { product, quantity: 1, size, color }];
     });
     showToast('Produto adicionado ao carrinho!', 'success');
-    setIsCartOpen(true); // Abre o carrinho automaticamente ao adicionar (opcional)
+    setIsCartOpen(true); 
   };
 
   const handleUpdateCartQuantity = (itemId: string, delta: number) => {
@@ -108,7 +110,6 @@ function App() {
 
             {/* Ações do Header (Direita) */}
             <div className="flex items-center gap-2 sm:gap-4">
-              {/* Botão de Busca Mobile */}
               <button className="md:hidden p-2 text-gray-500 hover:bg-gray-100 rounded-full">
                 <Search size={22} />
               </button>
@@ -180,7 +181,6 @@ function App() {
             <p className="text-gray-500 mt-1 max-w-md">
               Tente ajustar sua busca ou filtro. Se o banco estiver vazio, use o botão de Admin para popular.
             </p>
-            {/* Botão de Seed (Apenas visível se não houver produtos ou se você quiser deixar fixo) */}
              <div className="mt-8">
                 <SeedCatalogButton onSeed={loadProducts} />
              </div>
