@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { Database, Loader2, Check } from 'lucide-react';
-import { INITIAL_CATALOG } from '../data/seedCatalog';
+// CORREÇÃO 1: Importar initialProducts (o nome correto que criamos no arquivo de dados)
+import { initialProducts } from '../data/seedCatalog';
 import { db } from '../services/firebase';
 import { collection, getDocs, addDoc, query, where } from 'firebase/firestore';
 
-export const SeedCatalogButton: React.FC = () => {
+export const SeedCatalogButton: React.FC<{ onSeed?: () => void }> = ({ onSeed }) => {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [count, setCount] = useState(0);
 
   const handleSeed = async () => {
-    if (!window.confirm(`Isso vai adicionar ${INITIAL_CATALOG.length} produtos do catálogo ao seu banco de dados. Continuar?`)) return;
+    if (!window.confirm(`Isso vai adicionar ${initialProducts.length} produtos do catálogo ao seu banco de dados. Continuar?`)) return;
 
     setLoading(true);
     let addedCount = 0;
@@ -18,16 +19,17 @@ export const SeedCatalogButton: React.FC = () => {
     try {
       const productsRef = collection(db, 'products');
 
-      for (const item of INITIAL_CATALOG) {
-        // 1. Verifica se já existe um produto com essa referência para não duplicar
+      for (const item of initialProducts) {
+        // Verifica se já existe um produto com essa referência para não duplicar
         const q = query(productsRef, where("reference", "==", item.reference));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-          // 2. Se não existe, adiciona
           await addDoc(productsRef, {
             ...item,
-            imageUrl: "https://via.placeholder.com/400x600?text=" + item.reference, // Placeholder até você subir as fotos
+            // CORREÇÃO 2: Usa a imagem que definimos no arquivo de dados (placehold.co),
+            // em vez de tentar criar um link novo que estava quebrando.
+            imageUrl: item.imageUrl, 
             createdAt: new Date()
           });
           addedCount++;
@@ -37,7 +39,14 @@ export const SeedCatalogButton: React.FC = () => {
       setCount(addedCount);
       setStatus('success');
       alert(`Importação concluída! ${addedCount} novos produtos adicionados.`);
-      window.location.reload(); // Recarrega para mostrar os novos itens
+      
+      // Chama a função de recarregar a tela, se ela existir
+      if (onSeed) {
+        onSeed();
+      } else {
+        window.location.reload();
+      }
+      
     } catch (error) {
       console.error("Erro na importação:", error);
       setStatus('error');
@@ -51,14 +60,14 @@ export const SeedCatalogButton: React.FC = () => {
     <button 
       onClick={handleSeed}
       disabled={loading || status === 'success'}
-      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 mt-4 shadow-sm"
+      className="w-full bg-brand-navy hover:bg-brand-navy/90 text-white py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 mt-4 shadow-sm"
     >
       {loading ? (
         <><Loader2 className="animate-spin" size={16} /> Importando Catálogo...</>
       ) : status === 'success' ? (
-        <><Check size={16} /> Importado ({count} novos)</>
+        <><Check size={16} /> Sucesso ({count} add)</>
       ) : (
-        <><Database size={16} /> Importar Catálogo 2026</>
+        <><Database size={16} /> Popular Banco de Dados</>
       )}
     </button>
   );
