@@ -13,7 +13,7 @@ interface CartDrawerProps {
 export const CartDrawer: React.FC<CartDrawerProps> = ({ 
   isOpen, 
   onClose, 
-  items, 
+  items = [], // <--- CORREÇÃO 1: Valor padrão vazio para evitar o erro
   onRemoveItem,
   onUpdateQuantity 
 }) => {
@@ -21,10 +21,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [customerName, setCustomerName] = useState('');
   const [showNameError, setShowNameError] = useState(false);
 
-  const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
+  // CORREÇÃO 2: Garante que safeItems seja sempre um array, mesmo se items falhar
+  const safeItems = Array.isArray(items) ? items : [];
+
+  const totalItems = safeItems.reduce((acc, item) => acc + item.quantity, 0);
 
   // Calcula o valor total estimado
-  const totalValue = items.reduce((acc, item) => {
+  const totalValue = safeItems.reduce((acc, item) => {
     const unitPrice = item.product.price;
     const units = item.product.unitsPerBox > 0 ? item.quantity * item.product.unitsPerBox : item.quantity;
     return acc + (unitPrice * units);
@@ -41,7 +44,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     message += `----------------------------------\n\n`;
 
     // Itens
-    items.forEach((item, index) => {
+    safeItems.forEach((item, index) => {
       const units = item.product.unitsPerBox > 0 
         ? item.quantity * item.product.unitsPerBox 
         : item.quantity;
@@ -78,10 +81,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
     
     const message = generateMessage();
-    // Número alvo fixo ou configurável
     const phoneNumber = "5547999999999"; 
     
-    // Encode simples para garantir compatibilidade
     const encodedMessage = encodeURIComponent(message);
     const url = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
     
@@ -123,7 +124,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         </div>
 
         {/* Client Identification */}
-        {items.length > 0 && (
+        {safeItems.length > 0 && (
             <div className="bg-brand-navy/5 p-4 border-b border-brand-navy/10">
                 <label className="text-xs font-bold text-brand-navy uppercase mb-1 block flex items-center gap-1">
                     <User size={12} /> Nome do Cliente / Loja
@@ -144,7 +145,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
         {/* Lista de Itens */}
         <div className="flex-grow overflow-y-auto p-4 space-y-4 bg-gray-50">
-          {items.length === 0 ? (
+          {safeItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-4">
               <ShoppingBag size={64} className="opacity-20" />
               <p>Seu carrinho está vazio.</p>
@@ -153,8 +154,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </button>
             </div>
           ) : (
-            items.map((item, index) => (
-              <div key={`${item.productId}-${index}`} className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex gap-3 animate-fadeIn">
+            safeItems.map((item, index) => (
+              <div key={`${item.product.id}-${index}`} className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex gap-3 animate-fadeIn">
                 <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                   <img src={item.product.imageUrl} alt={item.product.name} className="w-full h-full object-cover" />
                 </div>
@@ -200,12 +201,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         </div>
 
         {/* Footer com Ações */}
-        {items.length > 0 && (
+        {safeItems.length > 0 && (
           <div className="p-5 bg-white border-t border-gray-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
             
             <div className="flex justify-between mb-4 text-sm">
                 <span className="text-gray-500">Volumes Totais:</span>
-                <span className="font-bold text-brand-navy">{totalItems} {items.some(i => i.product.unitsPerBox > 0) ? 'Caixas' : 'Peças'}</span>
+                <span className="font-bold text-brand-navy">{totalItems} {safeItems.some(i => i.product.unitsPerBox > 0) ? 'Caixas' : 'Peças'}</span>
             </div>
             
             {totalValue > 0 && (
